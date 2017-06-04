@@ -1,0 +1,98 @@
+#cloud-config
+
+# External URL in this cloud-config
+# http://mirror.nus.edu.sg/ubuntu/
+
+output: {all: '| tee -a /var/log/cloud-init-output.log'}
+
+password: Pa55w0rd
+chpasswd: {expire: False}
+ssh_pwdauth: True
+
+bootcmd:
+  - [ sh, -xc, "mkdir -p /home/www" ]
+  - [ sh, -xc, "mkdir -p /home/ubuntu" ]
+  
+apt_mirror: http://mirror.nus.edu.sg/ubuntu/
+apt_mirror_search_dns: false
+
+package_upgrade: true
+packages:
+  - language-pack-en-base
+  - nginx
+ 
+write_files:
+  - path: /etc/nginx/sites-available/server
+    owner: root:root
+    permissions: '0644'
+    content: |
+        server {
+          listen 80 default_server;
+          listen [::]:80 default_server ipv6only=on;
+
+          root /home/www;
+          index index.html;
+
+          server_name localhost;
+          server_tokens off;
+        
+          location / {
+            try_files $uri $uri/ /index.html;
+          }
+
+          #error_page 404 /404.html;
+          error_page 500 502 503 504 /50x.html;
+          location = /50x.html {
+            root /usr/share/nginx/html;
+          }
+          
+          #location /status {
+          #  stub_status on;
+          #  access_log off;
+          #  allow 127.0.0.1;
+          #  allow 192.168.56.*;
+          #  deny all;
+          #}
+        }
+     
+  - path: /home/www/index.html
+    owner: root:root
+    permissions: '0644'
+    content: |
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <title>Nginx-Server</title>
+        <style>
+            body {
+                    width: 35em;
+                    margin: 0 auto;
+                    font-family: Tahoma, Verdana, Arial, sans-serif;
+            }
+        </style>
+        </head>
+        <body>
+        <h2>Nginx-Server</h2>
+        <p>Welcome to Nginx Server: #1</p>
+        </body>
+        </html>
+
+  - path: /home/ubuntu/install.sh
+    owner: root:root
+    permissions: '0755'
+    content: |
+        #!/bin/bash
+        
+        rm -rf /etc/nginx/sites-enabled/default
+        ln -s /etc/nginx/sites-available/server /etc/nginx/sites-enabled/server
+        echo "-- Configured nginx site --"
+        
+        service nginx restart
+        echo "-- Restarted Nginx --"
+                       
+        echo "=== Done ==="
+        
+runcmd:
+  - [ sh, -xc, "/home/ubuntu/install.sh" ]
+  - [ sh, -xc, "chown -R ubuntu:ubuntu /home/ubuntu" ]
+
